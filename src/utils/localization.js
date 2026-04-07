@@ -19,7 +19,7 @@ const localePacks = {
         'Portfolio apresentado como um desktop macOS, com projetos reais navegaveis pelo Finder e pelo Safari.',
     },
     desktop: {
-      hint: 'Encoste o cursor na borda inferior para revelar o Dock e abrir o Finder.',
+      hint: 'Clique nos icones da mesa para abrir os projetos ou revele o Dock para usar o Finder.',
     },
     menuBar: {
       network: 'Wi-Fi',
@@ -173,7 +173,7 @@ const localePacks = {
         'Portfolio presented as a macOS desktop, with real projects navigable through Finder and Safari.',
     },
     desktop: {
-      hint: 'Move your cursor to the bottom edge to reveal the Dock and open Finder.',
+      hint: 'Click the desktop icons to open projects, or reveal the Dock to use Finder.',
     },
     menuBar: {
       network: 'Wi-Fi',

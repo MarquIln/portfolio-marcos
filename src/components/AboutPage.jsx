@@ -7,11 +7,13 @@ export default function AboutPage({ profile, copy }) {
         <div className="project-overview__main about-hero-card">
           <div className="about-hero__header">
             <AppIcon
+              src={profile.photoSrc}
               label={profile.name}
               iconKey="profile"
               className="about-hero__icon"
               accent="#5f8dff"
               accentSoft="#dce8ff"
+              imageFit="cover"
             />
 
             <div>

@@ -34,6 +34,7 @@ export default function AppIcon({
   title,
   accent = '#7c8cff',
   accentSoft = '#d7ddff',
+  imageFit = 'contain',
 }) {
   const FallbackIcon = fallbackIcons[iconKey] ?? AppWindowMac;
 
@@ -48,7 +49,7 @@ export default function AppIcon({
       aria-hidden="true"
     >
       {src ? (
-        <img src={src} alt="" className="app-icon__image" />
+        <img src={src} alt="" className="app-icon__image" data-fit={imageFit} />
       ) : (
         <span className="app-icon__fallback">
           <FallbackIcon size={24} strokeWidth={2.2} />

@@ -129,6 +129,27 @@ export default function App() {
         : currentProject?.name ?? currentDocument?.title ?? currentProfile?.name ?? rawCurrentPage.title,
   };
   const projectDocuments = localizedDocuments.filter((document) => document.projectId === pageProject?.id);
+  const profileShortcut = {
+    id: 'about-me',
+    label: copy.finder.homeCaption,
+    iconKey: 'profile',
+    src: localizedProfile.photoSrc,
+    accent: '#5f8dff',
+    accentSoft: '#dce8ff',
+    isActive: currentPage.type === 'profile',
+    onOpen: openProfile,
+  };
+
+  const desktopShortcuts = localizedProjects.map((project) => ({
+    id: project.id,
+    label: project.name,
+    iconKey: project.id,
+    src: project.iconSrc,
+    accent: project.theme.accentStrong,
+    accentSoft: project.theme.accentSoft,
+    isActive: currentPage.type === 'project' && currentProject?.id === project.id,
+    onOpen: () => openProject(project.id),
+  }));
 
   useEffect(() => {
     const appName =
@@ -363,6 +384,58 @@ export default function App() {
                         <div className="desktop-wallpaper__glow desktop-wallpaper__glow--one" />
                         <div className="desktop-wallpaper__glow desktop-wallpaper__glow--two" />
                         <div className="desktop-wallpaper__glow desktop-wallpaper__glow--three" />
+                      </div>
+
+                      <div
+                        className={`desktop-shortcuts desktop-shortcuts--profile ${activeApp ? 'is-hidden' : ''}`.trim()}
+                        role="list"
+                        aria-label="Profile shortcut"
+                      >
+                        <button
+                          type="button"
+                          className={`desktop-shortcut desktop-shortcut--profile ${profileShortcut.isActive ? 'is-active' : ''}`.trim()}
+                          role="listitem"
+                          onClick={profileShortcut.onOpen}
+                          title={profileShortcut.label}
+                        >
+                          <AppIcon
+                            src={profileShortcut.src}
+                            label={profileShortcut.label}
+                            iconKey={profileShortcut.iconKey}
+                            className="desktop-shortcut__icon desktop-shortcut__icon--profile"
+                            accent={profileShortcut.accent}
+                            accentSoft={profileShortcut.accentSoft}
+                            imageFit="cover"
+                          />
+                          <span className="desktop-shortcut__label">{profileShortcut.label}</span>
+                        </button>
+                      </div>
+
+                      <div
+                        className={`desktop-shortcuts desktop-shortcuts--projects ${activeApp ? 'is-hidden' : ''}`.trim()}
+                        role="list"
+                        aria-label="Desktop shortcuts"
+                      >
+                        {desktopShortcuts.map((shortcut) => (
+                          <button
+                            key={shortcut.id}
+                            type="button"
+                            className={`desktop-shortcut ${shortcut.isActive ? 'is-active' : ''}`.trim()}
+                            role="listitem"
+                            onClick={shortcut.onOpen}
+                            title={shortcut.label}
+                          >
+                            <AppIcon
+                              src={shortcut.src}
+                              label={shortcut.label}
+                              iconKey={shortcut.iconKey}
+                              className="desktop-shortcut__icon"
+                              accent={shortcut.accent}
+                              accentSoft={shortcut.accentSoft}
+                            />
+                            <span className="desktop-shortcut__label">{shortcut.label}</span>
+                          </button>
+                        ))}
                       </div>
 
                       <div className={`desktop-intro ${activeApp ? 'is-muted' : ''}`.trim()}>

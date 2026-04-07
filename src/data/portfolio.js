@@ -26,7 +26,7 @@ import ladoB4 from '../assets/lado-b/LadoB-4.png';
 import ladoB5 from '../assets/lado-b/LadoB-5.png';
 import breakIcon from '../assets/system-icons/iconBreak.png';
 import comunidadeUniversitariaIcon from '../assets/system-icons/iconComunidade.png';
-import excedentesIcon from '../assets/project-icons/excedentes.svg';
+import excedentesIcon from '../assets/system-icons/excedentes.png';
 import ladoBIcon from '../assets/system-icons/iconLadoB.png';
 import operaGaecoIcon from '../assets/system-icons/iconMPRS.png';
 import powPowIcon from '../assets/system-icons/iconPowPow.png';
