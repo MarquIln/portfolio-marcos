@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#bg)"/>
+  <rect x="48" y="48" width="416" height="416" rx="96" stroke="white" stroke-opacity="0.22" stroke-width="8"/>
+  <circle cx="256" cy="192" r="74" fill="url(#orb)"/>
+  <path d="M256 120L270 160L312 160L278 184L292 226L256 200L220 226L234 184L200 160L242 160L256 120Z" fill="white"/>
+  <path d="M202 290C202 258.072 227.891 232.181 259.819 232.181H263.773C295.701 232.181 321.592 258.072 321.592 290V294.791C321.592 326.719 295.701 352.61 263.773 352.61H259.819C227.891 352.61 202 326.719 202 294.791V290Z" fill="white" fill-opacity="0.94"/>
+  <path d="M236 356H286C286 388.033 260.033 414 228 414H186V406C186 378.386 208.386 356 236 356Z" fill="#DFF2FF" fill-opacity="0.88"/>
+  <defs>
+    <linearGradient id="bg" x1="88" y1="76" x2="430" y2="438" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#91D8FF"/>
+      <stop offset="1" stop-color="#4B68FF"/>
+    </linearGradient>
+    <linearGradient id="orb" x1="182" y1="118" x2="330" y2="266" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ECF8FF"/>
+      <stop offset="1" stop-color="#BCE0FF"/>
+    </linearGradient>
+  </defs>
+</svg>
