@@ -13,7 +13,7 @@ export default function AboutPage({ profile, copy }) {
               className="about-hero__icon"
               accent="#5f8dff"
               accentSoft="#dce8ff"
-              imageFit="cover"
+              imageFit="contain"
             />
 
             <div>

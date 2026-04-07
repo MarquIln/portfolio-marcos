@@ -1,5 +1,6 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { BatteryFull, Github, Globe, Linkedin, Mail, MoonStar, SunMedium, Wifi } from 'lucide-react';
+import { BatteryFull, Globe, MoonStar, SunMedium, Wifi } from 'lucide-react';
+import resumeFile from './assets/MarcosRaachCV.pdf';
 import AppIcon from './components/AppIcon';
 import FinderWindow from './components/FinderWindow';
 import SafariWindow from './components/SafariWindow';
@@ -139,6 +140,35 @@ export default function App() {
     isActive: currentPage.type === 'profile',
     onOpen: openProfile,
   };
+  const socialShortcuts = [
+    {
+      id: 'github',
+      label: 'GitHub',
+      iconKey: 'github',
+      href: profile.links.find((link) => link.url.includes('github.com'))?.url,
+      accent: '#1f2937',
+      accentSoft: '#dbe4ff',
+      isExternal: true,
+    },
+    {
+      id: 'linkedin',
+      label: 'LinkedIn',
+      iconKey: 'linkedin',
+      href: profile.links.find((link) => link.url.includes('linkedin.com'))?.url,
+      accent: '#0a66c2',
+      accentSoft: '#d8edff',
+      isExternal: true,
+    },
+    {
+      id: 'resume',
+      label: locale === 'pt-BR' ? 'Curriculo' : 'Resume',
+      iconKey: 'resume',
+      href: resumeFile,
+      accent: '#1d4ed8',
+      accentSoft: '#dbeafe',
+      download: 'MarcosRaachCV.pdf',
+    },
+  ].filter((shortcut) => shortcut.href);
 
   const desktopShortcuts = localizedProjects.map((project) => ({
     id: project.id,
@@ -389,7 +419,7 @@ export default function App() {
                       <div
                         className={`desktop-shortcuts desktop-shortcuts--profile ${activeApp ? 'is-hidden' : ''}`.trim()}
                         role="list"
-                        aria-label="Profile shortcut"
+                        aria-label="Profile and contact shortcuts"
                       >
                         <button
                           type="button"
@@ -405,10 +435,33 @@ export default function App() {
                             className="desktop-shortcut__icon desktop-shortcut__icon--profile"
                             accent={profileShortcut.accent}
                             accentSoft={profileShortcut.accentSoft}
-                            imageFit="cover"
+                            imageFit="contain"
                           />
                           <span className="desktop-shortcut__label">{profileShortcut.label}</span>
                         </button>
+
+                        {socialShortcuts.map((shortcut) => (
+                          <a
+                            key={shortcut.id}
+                            className="desktop-shortcut desktop-shortcut--utility"
+                            role="listitem"
+                            href={shortcut.href}
+                            target={shortcut.isExternal ? '_blank' : undefined}
+                            rel={shortcut.isExternal ? 'noopener noreferrer' : undefined}
+                            download={shortcut.download}
+                            title={shortcut.label}
+                            aria-label={shortcut.label}
+                          >
+                            <AppIcon
+                              label={shortcut.label}
+                              iconKey={shortcut.iconKey}
+                              className="desktop-shortcut__icon desktop-shortcut__icon--utility"
+                              accent={shortcut.accent}
+                              accentSoft={shortcut.accentSoft}
+                            />
+                            <span className="desktop-shortcut__label">{shortcut.label}</span>
+                          </a>
+                        ))}
                       </div>
 
                       <div
@@ -561,20 +614,6 @@ export default function App() {
           </div>
         </div>
 
-        <section className="portfolio-links">
-          <a href={profile.links[0].url} target="_blank" rel="noopener noreferrer">
-            <Github size={16} />
-            GitHub
-          </a>
-          <a href={profile.links[1].url} target="_blank" rel="noopener noreferrer">
-            <Linkedin size={16} />
-            LinkedIn
-          </a>
-          <a href={profile.links[2].url}>
-            <Mail size={16} />
-            Email
-          </a>
-        </section>
       </main>
     </div>
   );

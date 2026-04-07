@@ -54,6 +54,7 @@ import powPoPo4 from '../assets/pow-po-po/UPGRADE.png';
 import powPoPo5 from '../assets/pow-po-po/PAUSE.png';
 import powPoPo6 from '../assets/pow-po-po/DEAD.png';
 import finderIcon from '../assets/system-icons/finderIcon.png';
+import marcosMemoji from '../assets/marcos-memoji.png';
 import safariIcon from '../assets/system-icons/safari.png';
 
 function placeholderContribution(projectName) {
@@ -1058,6 +1059,7 @@ const baseProjects = [
 
 export const profile = {
   name: 'Marcos Vinicius Raach',
+  photoSrc: marcosMemoji,
   role: 'iOS Developer Student @ Apple Developer Academy',
   summary:
     'Portfolio apresentado como um desktop macOS, com projetos reais navegaveis pelo Finder e pelo Safari.',
