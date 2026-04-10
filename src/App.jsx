@@ -1,5 +1,5 @@
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { BatteryFull, Globe, MoonStar, SunMedium, Wifi } from 'lucide-react';
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { BatteryFull, Globe, MoonStar, Power, SunMedium, Wifi } from 'lucide-react';
 import resumeFile from './assets/MarcosRaachCV.pdf';
 import AppIcon from './components/AppIcon';
 import FinderWindow from './components/FinderWindow';
@@ -29,6 +29,267 @@ function normalizeText(value = '') {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+}
+
+function hexToRgb(value) {
+  const normalized = value.replace('#', '').trim();
+  const hex =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((char) => `${char}${char}`)
+          .join('')
+      : normalized;
+  const parsed = Number.parseInt(hex, 16);
+
+  if (Number.isNaN(parsed)) {
+    return { r: 0, g: 0, b: 0 };
+  }
+
+  return {
+    r: (parsed >> 16) & 255,
+    g: (parsed >> 8) & 255,
+    b: parsed & 255,
+  };
+}
+
+function withAlpha(value, alpha) {
+  const { r, g, b } = hexToRgb(value);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function mixHex(colorA, colorB, weight = 0.5) {
+  const start = hexToRgb(colorA);
+  const end = hexToRgb(colorB);
+  const ratio = Math.max(0, Math.min(1, weight));
+  const mixChannel = (from, to) => Math.round(from * (1 - ratio) + to * ratio);
+  const toHex = (channel) => channel.toString(16).padStart(2, '0');
+
+  return `#${toHex(mixChannel(start.r, end.r))}${toHex(mixChannel(start.g, end.g))}${toHex(mixChannel(start.b, end.b))}`;
+}
+
+function rgbToHex({ r, g, b }) {
+  const toHex = (channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function rgbToHsl({ r, g, b }) {
+  const red = r / 255;
+  const green = g / 255;
+  const blue = b / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+
+  if (delta === 0) {
+    return { h: 0, s: 0, l: lightness };
+  }
+
+  const saturation =
+    lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+
+  let hue = 0;
+
+  if (max === red) {
+    hue = (green - blue) / delta + (green < blue ? 6 : 0);
+  } else if (max === green) {
+    hue = (blue - red) / delta + 2;
+  } else {
+    hue = (red - green) / delta + 4;
+  }
+
+  return {
+    h: hue / 6,
+    s: saturation,
+    l: lightness,
+  };
+}
+
+function fallbackProjectPalette(project) {
+  return {
+    base: mixHex(project.theme.heroFrom, project.theme.heroTo, 0.4),
+    accent: project.theme.accentStrong,
+    soft: project.theme.accentSoft,
+  };
+}
+
+const projectPaletteCache = new Map();
+
+function extractPaletteFromImageData(imageData, fallbackPalette) {
+  let weightedRed = 0;
+  let weightedGreen = 0;
+  let weightedBlue = 0;
+  let totalWeight = 0;
+  let deepCandidate = fallbackPalette.base;
+  let deepScore = -Infinity;
+  let vibrantCandidate = fallbackPalette.accent;
+  let vibrantScore = -Infinity;
+  let softCandidate = fallbackPalette.soft;
+  let softScore = -Infinity;
+
+  for (let index = 0; index < imageData.length; index += 16) {
+    const alpha = imageData[index + 3] / 255;
+
+    if (alpha < 0.95) {
+      continue;
+    }
+
+    const rgb = {
+      r: imageData[index],
+      g: imageData[index + 1],
+      b: imageData[index + 2],
+    };
+    const { s, l } = rgbToHsl(rgb);
+    const weight = alpha * (0.35 + s * 0.95) * (0.6 + (1 - Math.abs(l - 0.48)));
+
+    weightedRed += rgb.r * weight;
+    weightedGreen += rgb.g * weight;
+    weightedBlue += rgb.b * weight;
+    totalWeight += weight;
+
+    const deepScoreCandidate = (1 - Math.abs(l - 0.2)) + s * 0.72;
+    if (l > 0.06 && l < 0.42 && deepScoreCandidate > deepScore) {
+      deepCandidate = rgbToHex(rgb);
+      deepScore = deepScoreCandidate;
+    }
+
+    const vibrantScoreCandidate = s * 1.5 + (1 - Math.abs(l - 0.52)) * 0.85;
+    if (l > 0.16 && l < 0.78 && vibrantScoreCandidate > vibrantScore) {
+      vibrantCandidate = rgbToHex(rgb);
+      vibrantScore = vibrantScoreCandidate;
+    }
+
+    const softScoreCandidate = (1 - Math.abs(l - 0.72)) + s * 0.65;
+    if (l > 0.4 && l < 0.94 && softScoreCandidate > softScore) {
+      softCandidate = rgbToHex(rgb);
+      softScore = softScoreCandidate;
+    }
+  }
+
+  if (totalWeight === 0) {
+    return fallbackPalette;
+  }
+
+  const averageColor = rgbToHex({
+    r: weightedRed / totalWeight,
+    g: weightedGreen / totalWeight,
+    b: weightedBlue / totalWeight,
+  });
+
+  return {
+    base: mixHex(averageColor, deepCandidate, 0.58),
+    accent: mixHex(vibrantCandidate, fallbackPalette.accent, 0.16),
+    soft: mixHex(softCandidate, fallbackPalette.soft, 0.14),
+  };
+}
+
+async function readProjectPalette(project) {
+  const source = project.screenshots[0]?.src ?? project.iconSrc;
+  const cacheKey = source ?? project.id;
+
+  if (projectPaletteCache.has(cacheKey)) {
+    return projectPaletteCache.get(cacheKey);
+  }
+
+  const fallbackPalette = fallbackProjectPalette(project);
+
+  if (!source) {
+    projectPaletteCache.set(cacheKey, fallbackPalette);
+    return fallbackPalette;
+  }
+
+  const palette = await new Promise((resolve) => {
+    const image = new window.Image();
+    image.decoding = 'async';
+    image.src = source;
+
+    image.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+
+        if (!context) {
+          resolve(fallbackPalette);
+          return;
+        }
+
+        const sampleWidth = 40;
+        const sampleHeight = 40;
+        canvas.width = sampleWidth;
+        canvas.height = sampleHeight;
+        context.drawImage(image, 0, 0, sampleWidth, sampleHeight);
+        const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight);
+        resolve(extractPaletteFromImageData(data, fallbackPalette));
+      } catch {
+        resolve(fallbackPalette);
+      }
+    };
+
+    image.onerror = () => resolve(fallbackPalette);
+  });
+
+  projectPaletteCache.set(cacheKey, palette);
+  return palette;
+}
+
+function projectSceneStyle(project, palette, themeMode) {
+  if (!project) {
+    return undefined;
+  }
+
+  const isDarkMode = themeMode === 'dark';
+  const resolvedPalette = palette ?? fallbackProjectPalette(project);
+  const sceneStart = isDarkMode
+    ? mixHex(resolvedPalette.base, '#040811', 0.26)
+    : mixHex(resolvedPalette.soft, '#f6f9ff', 0.74);
+  const sceneMid = isDarkMode
+    ? mixHex(resolvedPalette.accent, resolvedPalette.base, 0.68)
+    : mixHex(resolvedPalette.accent, '#dfe9ff', 0.66);
+  const sceneEnd = isDarkMode
+    ? mixHex(resolvedPalette.base, '#07111d', 0.44)
+    : mixHex(resolvedPalette.base, '#e9f1ff', 0.78);
+
+  return {
+    '--scene-background': `
+      radial-gradient(circle at 22% 18%, ${withAlpha(resolvedPalette.soft, isDarkMode ? 0.16 : 0.24)}, transparent 24%),
+      radial-gradient(circle at 78% 22%, ${withAlpha(resolvedPalette.accent, isDarkMode ? 0.18 : 0.2)}, transparent 26%),
+      linear-gradient(180deg, ${sceneStart} 0%, ${sceneMid} 42%, ${sceneEnd} 100%)
+    `,
+    '--scene-backdrop': `
+      radial-gradient(circle at 18% 18%, ${withAlpha(resolvedPalette.accent, isDarkMode ? 0.18 : 0.16)}, transparent 22%),
+      radial-gradient(circle at 82% 20%, ${withAlpha(resolvedPalette.soft, isDarkMode ? 0.16 : 0.16)}, transparent 24%),
+      radial-gradient(circle at 50% 82%, ${withAlpha(resolvedPalette.base, isDarkMode ? 0.18 : 0.14)}, transparent 28%)
+    `,
+    '--desktop-wallpaper': `
+      radial-gradient(circle at 24% 18%, ${withAlpha(resolvedPalette.soft, isDarkMode ? 0.22 : 0.28)}, transparent 24%),
+      radial-gradient(circle at 76% 26%, ${withAlpha(resolvedPalette.accent, isDarkMode ? 0.28 : 0.24)}, transparent 26%),
+      radial-gradient(circle at 50% 70%, ${withAlpha(resolvedPalette.base, isDarkMode ? 0.24 : 0.16)}, transparent 28%),
+      linear-gradient(160deg, ${sceneStart} 0%, ${sceneMid} 38%, ${sceneEnd} 100%)
+    `,
+    '--desktop-wallpaper-overlay': isDarkMode
+      ? `
+        linear-gradient(120deg, rgba(255, 255, 255, 0.04), transparent 35%),
+        linear-gradient(transparent, rgba(255, 255, 255, 0.06))
+      `
+      : `
+        linear-gradient(120deg, rgba(255, 255, 255, 0.24), transparent 35%),
+        linear-gradient(transparent, rgba(255, 255, 255, 0.18))
+      `,
+    '--desktop-intro-bg': isDarkMode
+      ? `linear-gradient(145deg, ${withAlpha(sceneEnd, 0.86)}, ${withAlpha(sceneMid, 0.5)})`
+      : `linear-gradient(145deg, ${withAlpha('#ffffff', 0.68)}, ${withAlpha(resolvedPalette.soft, 0.44)})`,
+    '--desktop-intro-line': isDarkMode
+      ? withAlpha(resolvedPalette.soft, 0.22)
+      : withAlpha(resolvedPalette.accent, 0.14),
+    '--desktop-intro-muted': isDarkMode
+      ? withAlpha(resolvedPalette.soft, 0.82)
+      : mixHex(resolvedPalette.accent, '#55647f', 0.48),
+    '--desktop-glow-one': withAlpha(resolvedPalette.soft, isDarkMode ? 0.18 : 0.2),
+    '--desktop-glow-two': withAlpha(resolvedPalette.accent, isDarkMode ? 0.22 : 0.18),
+    '--desktop-glow-three': withAlpha(resolvedPalette.base, isDarkMode ? 0.16 : 0.12),
+    '--boot-accent': withAlpha(resolvedPalette.accent, isDarkMode ? 0.24 : 0.18),
+  };
 }
 
 function matchesFinderCollection(project, collectionId) {
@@ -75,6 +336,11 @@ export default function App() {
   const [now, setNow] = useState(() => new Date());
   const [theme, setTheme] = useState(() => window.localStorage.getItem('portfolio-theme') ?? 'dark');
   const [locale, setLocale] = useState(() => window.localStorage.getItem('portfolio-locale') ?? 'pt-BR');
+  const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
+  const [isShutdownDialogOpen, setIsShutdownDialogOpen] = useState(false);
+  const [scenePalette, setScenePalette] = useState(null);
+  const bootTimersRef = useRef([]);
+  const systemMenuRef = useRef(null);
   const deferredFinderQuery = useDeferredValue(finderQuery);
   const copy = useMemo(() => getLocalePack(locale), [locale]);
   const localizedProfile = useMemo(() => localizeProfile(profile, locale), [locale]);
@@ -96,12 +362,15 @@ export default function App() {
   );
 
   useEffect(() => {
-    const openingTimer = window.setTimeout(() => setBootPhase('booting'), 420);
-    const readyTimer = window.setTimeout(() => setBootPhase('ready'), 1520);
+    const openingTimer = window.setTimeout(() => setBootPhase('booting'), 360);
+    const readyTimer = window.setTimeout(() => setBootPhase('ready'), 2000);
+
+    bootTimersRef.current = [openingTimer, readyTimer];
 
     return () => {
       window.clearTimeout(openingTimer);
       window.clearTimeout(readyTimer);
+      bootTimersRef.current = [];
     };
   }, []);
 
@@ -122,6 +391,14 @@ export default function App() {
   const currentDocument = rawCurrentPage.type === 'document' ? documentMap[rawCurrentPage.documentId] : null;
   const currentProfile = rawCurrentPage.type === 'profile' ? localizedProfile : null;
   const pageProject = currentProject ?? projectMap[currentDocument?.projectId ?? ''];
+  const activeSceneProject =
+    isSafariOpen && (rawCurrentPage.type === 'project' || rawCurrentPage.type === 'document')
+      ? pageProject
+      : null;
+  const sceneStyle = useMemo(
+    () => projectSceneStyle(activeSceneProject, scenePalette, theme),
+    [activeSceneProject, scenePalette, theme],
+  );
   const currentPage = {
     ...rawCurrentPage,
     title:
@@ -191,6 +468,73 @@ export default function App() {
     document.title = `Marcos | ${appName}`;
   }, [activeApp, copy.appNames.desktop, copy.appNames.finder, currentPage.title]);
 
+  useEffect(() => {
+    if (!isSystemMenuOpen && !isShutdownDialogOpen) return undefined;
+
+    function handlePointerDown(event) {
+      if (
+        isSystemMenuOpen &&
+        systemMenuRef.current &&
+        event.target instanceof Node &&
+        !systemMenuRef.current.contains(event.target)
+      ) {
+        setIsSystemMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key !== 'Escape') return;
+      setIsSystemMenuOpen(false);
+      setIsShutdownDialogOpen(false);
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSystemMenuOpen, isShutdownDialogOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let frameId = 0;
+
+    if (!activeSceneProject) {
+      return undefined;
+    }
+
+    const fallbackPalette = fallbackProjectPalette(activeSceneProject);
+    const source = activeSceneProject.screenshots[0]?.src ?? activeSceneProject.iconSrc;
+    const cacheKey = source ?? activeSceneProject.id;
+    const cachedPalette = projectPaletteCache.get(cacheKey);
+
+    frameId = window.requestAnimationFrame(() => {
+      if (!cancelled) {
+        setScenePalette(cachedPalette ?? fallbackPalette);
+      }
+    });
+
+    if (cachedPalette) {
+      return () => {
+        cancelled = true;
+        window.cancelAnimationFrame(frameId);
+      };
+    }
+
+    readProjectPalette(activeSceneProject).then((palette) => {
+      if (!cancelled) {
+        setScenePalette(palette);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [activeSceneProject]);
+
   const collections = [
     {
       id: 'all',
@@ -253,7 +597,57 @@ export default function App() {
     minute: '2-digit',
   }).format(now);
 
+  function clearBootTimers() {
+    bootTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    bootTimersRef.current = [];
+  }
+
+  function queueBootTimer(callback, delay) {
+    const timerId = window.setTimeout(callback, delay);
+    bootTimersRef.current.push(timerId);
+  }
+
+  function resetWorkspaceState() {
+    setActiveApp(null);
+    setIsFinderOpen(false);
+    setHasSafariLaunched(false);
+    setIsSafariOpen(false);
+    setFinderQuery('');
+    setActiveCollection('all');
+    setFinderView('icon');
+    setSafariSearch('');
+    setSafariHistory([safariHomePage.id]);
+    setHistoryIndex(0);
+    setPageRenderKey(0);
+  }
+
+  function startBootSequence() {
+    clearBootTimers();
+    setIsSystemMenuOpen(false);
+    setIsShutdownDialogOpen(false);
+    setBootPhase('opening');
+    queueBootTimer(() => setBootPhase('booting'), 360);
+    queueBootTimer(() => setBootPhase('ready'), 2000);
+  }
+
+  function requestShutdown() {
+    setIsSystemMenuOpen(false);
+    setIsShutdownDialogOpen(true);
+  }
+
+  function confirmShutdown() {
+    clearBootTimers();
+    setIsSystemMenuOpen(false);
+    setIsShutdownDialogOpen(false);
+    setBootPhase('shutting-down');
+    queueBootTimer(() => {
+      resetWorkspaceState();
+      setBootPhase('powered-off');
+    }, 920);
+  }
+
   function activateFinder() {
+    setIsSystemMenuOpen(false);
     setIsFinderOpen(true);
     setActiveApp('finder');
   }
@@ -265,11 +659,13 @@ export default function App() {
 
   function activateSafari() {
     if (!hasSafariLaunched) return;
+    setIsSystemMenuOpen(false);
     setIsSafariOpen(true);
     setActiveApp('safari');
   }
 
   function navigateSafari(pageId) {
+    setIsSystemMenuOpen(false);
     const currentId = safariHistory[historyIndex];
     const nextHistory = safariHistory.slice(0, historyIndex + 1);
     let nextIndex = historyIndex;
@@ -346,7 +742,12 @@ export default function App() {
   }
 
   return (
-    <div className={`portfolio-root is-${bootPhase}`} data-theme={theme} data-locale={locale}>
+    <div
+      className={`portfolio-root is-${bootPhase}`}
+      data-theme={theme}
+      data-locale={locale}
+      style={sceneStyle}
+    >
       <div className="scene-backdrop" aria-hidden="true" />
 
       <main className="portfolio-scene">
@@ -363,7 +764,31 @@ export default function App() {
                   <div className="screen-surface">
                     <header className="menu-bar">
                       <div className="menu-bar__left">
-                        <span className="menu-bar__apple">portfolioOS</span>
+                        <div className="menu-bar__menu-group" ref={systemMenuRef}>
+                          <button
+                            type="button"
+                            className={`menu-bar__apple-button ${isSystemMenuOpen ? 'is-open' : ''}`.trim()}
+                            aria-label={copy.system.menuLabel}
+                            aria-haspopup="menu"
+                            aria-expanded={isSystemMenuOpen}
+                            onClick={() => setIsSystemMenuOpen((value) => !value)}
+                          >
+                            <span className="menu-bar__apple">portfolioOS</span>
+                          </button>
+
+                          <div className={`system-menu ${isSystemMenuOpen ? 'is-open' : ''}`.trim()} role="menu">
+                            <button
+                              type="button"
+                              className="system-menu__item"
+                              role="menuitem"
+                              onClick={requestShutdown}
+                            >
+                              <span>{copy.system.shutdownLabel}</span>
+                              <Power size={14} />
+                            </button>
+                          </div>
+                        </div>
+
                         <span className="menu-bar__app-name">
                           {activeApp === 'finder'
                             ? copy.appNames.finder
@@ -371,6 +796,7 @@ export default function App() {
                               ? copy.appNames.safari
                               : copy.appNames.desktop}
                         </span>
+
                         {appMenu(activeApp, copy).map((item) => (
                           <span key={item} className="menu-bar__item">
                             {item}
@@ -388,6 +814,7 @@ export default function App() {
                           <Globe size={13} />
                           {copy.localeLabel}
                         </button>
+
                         <button
                           type="button"
                           className="menu-bar__chip menu-bar__chip--button"
@@ -397,14 +824,17 @@ export default function App() {
                           {theme === 'dark' ? <MoonStar size={13} /> : <SunMedium size={13} />}
                           {theme === 'dark' ? copy.menuBar.themeDark : copy.menuBar.themeLight}
                         </button>
+
                         <span className="menu-bar__chip">
                           <Wifi size={13} />
                           {copy.menuBar.network}
                         </span>
+
                         <span className="menu-bar__chip">
                           <BatteryFull size={13} />
                           {copy.menuBar.battery}
                         </span>
+
                         <span className="menu-bar__time">{formattedLocalizedTime}</span>
                       </div>
                     </header>
@@ -519,11 +949,11 @@ export default function App() {
                         <SafariWindow
                           visibility={safariVisibility}
                           currentPage={currentPage}
-                            currentProject={currentProject}
-                            currentDocument={currentDocument}
-                            currentProfile={currentProfile}
-                            projectDocuments={projectDocuments}
-                            projects={localizedProjects}
+                          currentProject={currentProject}
+                          currentDocument={currentDocument}
+                          currentProfile={currentProfile}
+                          projectDocuments={projectDocuments}
+                          projects={localizedProjects}
                           searchValue={safariSearch}
                           onSearchChange={setSafariSearch}
                           onSubmitSearch={submitSafariSearch}
@@ -551,6 +981,48 @@ export default function App() {
                     <div className="dock-reveal-zone" aria-hidden="true">
                       <span className="dock-handle" />
                     </div>
+
+                    {isShutdownDialogOpen ? (
+                      <div
+                        className="system-dialog-backdrop"
+                        role="presentation"
+                        onClick={() => setIsShutdownDialogOpen(false)}
+                      >
+                        <div
+                          className="system-dialog"
+                          role="dialog"
+                          aria-modal="true"
+                          aria-labelledby="shutdown-title"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <div className="system-dialog__icon" aria-hidden="true">
+                            <Power size={20} />
+                          </div>
+
+                          <div className="system-dialog__copy">
+                            <h2 id="shutdown-title">{copy.system.shutdownTitle}</h2>
+                            <p>{copy.system.shutdownBody}</p>
+                          </div>
+
+                          <div className="system-dialog__actions">
+                            <button
+                              type="button"
+                              className="system-dialog__button"
+                              onClick={() => setIsShutdownDialogOpen(false)}
+                            >
+                              {copy.system.cancelAction}
+                            </button>
+                            <button
+                              type="button"
+                              className="system-dialog__button system-dialog__button--danger"
+                              onClick={confirmShutdown}
+                            >
+                              {copy.system.confirmShutdown}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
 
                     <footer className="dock">
                       <button
@@ -590,9 +1062,39 @@ export default function App() {
                       ) : null}
                     </footer>
 
-                    <div className="boot-overlay" aria-hidden={bootPhase === 'ready'}>
+                    <div className="boot-overlay" aria-hidden={bootPhase === 'ready'} data-phase={bootPhase}>
                       <span className="boot-overlay__halo" />
                       <span className="boot-overlay__reflection" />
+
+                      {bootPhase === 'powered-off' ? (
+                        <div className="power-screen">
+                          <div className="power-screen__mark" aria-hidden="true">
+                            <Power size={28} />
+                          </div>
+                          <strong>{copy.system.poweredOffTitle}</strong>
+                          <p>{copy.system.poweredOffHint}</p>
+                          <button type="button" className="power-screen__button" onClick={startBootSequence}>
+                            <Power size={16} />
+                            {copy.system.powerOnAction}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="boot-screen">
+                          <div className="boot-screen__brand">
+                            <span className="boot-screen__brand-dot" />
+                            <strong>{copy.system.bootTitle}</strong>
+                          </div>
+                          <p className="boot-screen__status">
+                            {bootPhase === 'shutting-down' ? copy.system.shutdownStatus : copy.system.bootStatus}
+                          </p>
+                          <div className="boot-screen__progress" aria-hidden="true">
+                            <span className="boot-screen__progress-bar" />
+                          </div>
+                          <span className="boot-screen__hint">
+                            {bootPhase === 'shutting-down' ? copy.system.shutdownHint : copy.system.bootHint}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -613,7 +1115,6 @@ export default function App() {
             </div>
           </div>
         </div>
-
       </main>
     </div>
   );

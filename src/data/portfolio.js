@@ -1082,6 +1082,16 @@ export const profile = {
         'Atuacao em times ageis e multidisciplinares.',
       ],
     },
+    {
+      title: 'Customer Relationship Management Analyst',
+      organization: 'ASG Educacao',
+      period: 'Agosto de 2024 - Fevereiro de 2025',
+      highlights: [
+        'Atuacao como Customer Relationship Management Analyst na ASG Educacao.',
+        'Trabalho remoto em contexto corporativo com foco em relacionamento com clientes.',
+        'Experiencia com empresas de grande porte como Alpargatas, Danone, Ceva Saude Animal, CMPC, PTC, Sinqia e Melitta.',
+      ],
+    },
   ],
   education: [
     {
